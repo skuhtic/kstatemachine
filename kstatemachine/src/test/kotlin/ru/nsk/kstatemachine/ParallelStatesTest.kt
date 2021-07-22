@@ -157,4 +157,58 @@ class ParallelStatesTest {
         machine.processEvent(SecondEvent)
         verify { callbacks.onTriggeredTransition(SecondEvent) }
     }
+
+    // FIXME add sample code and readme refs
+    /**
+     * StateMachine finishes when all child parallel states has finished
+     */
+    @Test
+    fun finishingWithParallelStates() {
+        val callbacks = mockkCallbacks()
+
+        lateinit var state1: IState
+        lateinit var state2: IState
+        val machine = createStateMachine(childMode = ChildMode.PARALLEL) {
+            state1 = state("State1") {
+                addInitialState(DefaultFinalState("Final state11"))
+                onFinished { callbacks.onFinished(this) }
+            }
+            state2 = state("State2") {
+                val finalState22 = finalState("State22")
+                initialState {
+                    transition<SwitchEvent> { targetState = finalState22}
+                }
+                onFinished { callbacks.onFinished(this) }
+            }
+            onFinished { callbacks.onFinished(this) }
+        }
+
+        machine.processEvent(SwitchEvent)
+
+        verifySequence {
+            callbacks.onFinished(state1)
+            callbacks.onFinished(state2)
+            callbacks.onFinished(machine)
+        }
+    }
+
+    @Test
+    fun finishingWithParallelStates_negative() {
+        val callbacks = mockkCallbacks()
+
+        lateinit var state1: IState
+        createStateMachine(childMode = ChildMode.PARALLEL) {
+            state1 = state("State1") {
+                addInitialState(DefaultFinalState("Final state11"))
+                onFinished { callbacks.onFinished(this) }
+            }
+            state("State2")
+            
+            onFinished { callbacks.onFinished(this) }
+        }
+
+        verifySequence {
+            callbacks.onFinished(state1)
+        }
+    }
 }
